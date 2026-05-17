@@ -1,0 +1,484 @@
+<!-- file: templates/index.html -->
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        博客來書評分析系統
+    </title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <style>
+
+        body {
+            background-color: #f5f5f5;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+
+        .container-box {
+            max-width: 1200px;
+            margin: 40px auto;
+        }
+
+        .card-custom {
+            border-radius: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border: none;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .summary-box {
+            min-height: 150px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+        }
+
+        .keyword-badge {
+            margin: 5px;
+            font-size: 15px;
+        }
+
+        .loading {
+            display: none;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container container-box">
+
+    <h1 class="text-center mb-4">
+        📚 博客來書評分析系統
+    </h1>
+
+    <!-- Input Area -->
+
+    <div class="card card-custom p-4 mb-4">
+
+        <div class="section-title">
+            🔍 書籍輸入
+        </div>
+
+        <div class="row g-3">
+
+            <!-- URL -->
+
+            <div class="col-md-6">
+
+                <label class="form-label">
+                    博客來書評 URL
+                </label>
+
+                <input
+                    type="text"
+                    id="urlInput"
+                    class="form-control"
+                    placeholder="請輸入博客來書評網址"
+                >
+
+            </div>
+
+            <!-- Preset -->
+
+            <div class="col-md-4">
+
+                <label class="form-label">
+                    或選擇預設書籍
+                </label>
+
+                <select
+                    id="presetSelect"
+                    class="form-select"
+                >
+
+                    <option value="">
+                        請選擇書籍
+                    </option>
+
+                    <option value="被討厭的勇氣">
+                        被討厭的勇氣
+                    </option>
+
+                    <option value="原子習慣">
+                        原子習慣
+                    </option>
+
+                    <option value="解憂雜貨店">
+                        解憂雜貨店
+                    </option>
+
+                    <option value="牧羊少年奇幻之旅">
+                        牧羊少年奇幻之旅
+                    </option>
+
+                    <option value="底層邏輯：看清這個世界的底牌">
+                        底層邏輯：看清這個世界的底牌
+                    </option>
+
+                </select>
+
+            </div>
+
+            <!-- Analyze Button -->
+
+            <div class="col-md-2 d-flex align-items-end">
+
+                <button
+                    class="btn btn-primary w-100"
+                    onclick="analyzeBook()"
+                >
+                    分析書評
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Loading -->
+
+    <div
+        class="text-center loading"
+        id="loading"
+    >
+
+        <div class="spinner-border text-primary"></div>
+
+        <p class="mt-2">
+            分析中...
+        </p>
+
+    </div>
+
+    <!-- Sentiment -->
+
+    <div class="card card-custom p-4 mb-4">
+
+        <div class="section-title">
+            😊 情緒分析
+        </div>
+
+        <div class="row">
+
+            <div class="col-md-6">
+
+                <canvas id="sentimentChart"></canvas>
+
+            </div>
+
+            <div class="col-md-6">
+
+                <ul class="list-group">
+
+                    <li class="list-group-item">
+                        正向：
+                        <span id="positiveText">0%</span>
+                    </li>
+
+                    <li class="list-group-item">
+                        中性：
+                        <span id="neutralText">0%</span>
+                    </li>
+
+                    <li class="list-group-item">
+                        負向：
+                        <span id="negativeText">0%</span>
+                    </li>
+
+                </ul>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Keywords -->
+
+    <div class="card card-custom p-4 mb-4">
+
+        <div class="section-title">
+            🔑 關鍵字分析
+        </div>
+
+        <div id="keywordContainer"></div>
+
+    </div>
+
+    <div class="text-center mt-4">
+
+        <img
+            id="wordcloudImage"
+            class="img-fluid rounded shadow"
+            style="max-width: 100%;"
+        >
+
+    </div>
+
+    <!-- Summary -->
+
+    <div class="card card-custom p-4 mb-4">
+
+        <div class="section-title">
+            📝 自動摘要
+        </div>
+
+        <div
+            id="summaryBox"
+            class="summary-box"
+        >
+            尚未分析
+        </div>
+
+    </div>
+
+    <!-- Pipeline -->
+
+    <div class="text-center">
+
+        <button
+            class="btn btn-outline-dark"
+            onclick="goToPipeline()"
+        >
+            查看 NLP Pipeline
+        </button>
+
+    </div>
+
+</div>
+
+<script>
+
+    let sentimentChart = null;
+
+    async function analyzeBook() {
+
+        const url =
+            document.getElementById("urlInput").value;
+
+        const preset =
+            document.getElementById("presetSelect").value;
+
+        document.getElementById("loading").style.display =
+            "block";
+
+        try {
+
+            const response = await fetch("/analyze", {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    url,
+                    preset
+                })
+
+            });
+
+            const data = await response.json();
+
+            console.log(data);
+
+            window.currentBook = data.book;
+
+
+            if (data.error) {
+
+                alert(data.error);
+
+                return;
+            }
+
+            // ===== Summary =====
+
+            document.getElementById("summaryBox").innerHTML = `
+                <div class="mb-3">
+                    <strong>😊 好評原因(4顆星以以上)：</strong><br>
+                    ${data.summary.positive}
+                </div>
+
+                <div class="mb-3">
+                    <strong>😐 普通評論(3到4顆星)：</strong><br>
+                    ${data.summary.neutral}
+                </div>
+
+                <div>
+                    <strong>😡 負評原因(2星以下)：</strong><br>
+                    ${data.summary.negative}
+                </div>
+            `;
+
+            // ===== Sentiment =====
+
+            document.getElementById(
+                "positiveText"
+            ).innerText =
+
+            `${data.sentiment.positive.count}
+            則
+            (${data.sentiment.positive.percent}%)`;
+
+
+            document.getElementById(
+                "neutralText"
+            ).innerText =
+
+            `${data.sentiment.neutral.count}
+            則
+            (${data.sentiment.neutral.percent}%)`;
+
+
+            document.getElementById(
+                "negativeText"
+            ).innerText =
+
+            `${data.sentiment.negative.count}
+            則
+            (${data.sentiment.negative.percent}%)`;
+
+            // ===== Keywords =====
+
+            const keywordContainer =
+                document.getElementById("keywordContainer");
+
+            keywordContainer.innerHTML = "";
+
+            data.keywords.forEach(keyword => {
+
+                keywordContainer.innerHTML += `
+                    <span class="badge bg-primary keyword-badge">
+                        ${keyword}
+                    </span>
+                `;
+            document.getElementById(
+                "wordcloudImage"
+            ).src =
+                data.wordcloud +
+                "?t=" +
+                new Date().getTime();
+
+            });
+
+            // ===== Pie Chart =====
+
+            const ctx =
+                document.getElementById("sentimentChart");
+
+            if (sentimentChart) {
+                sentimentChart.destroy();
+            }
+
+            sentimentChart = new Chart(ctx, {
+
+                type: "pie",
+
+                data: {
+
+                    labels: [
+
+                    `Positive
+                    (${data.sentiment.positive.count})`,
+
+                    `Neutral
+                    (${data.sentiment.neutral.count})`,
+
+                    `Negative
+                    (${data.sentiment.negative.count})`
+
+                    ],
+
+                    datasets: [{
+
+                        data: [
+                            data.sentiment.positive.percent,
+                            data.sentiment.neutral.percent,
+                            data.sentiment.negative.percent
+                        ]
+
+                    }]
+                }
+
+            });
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert("分析失敗");
+
+        } finally {
+
+            document.getElementById("loading").style.display =
+                "none";
+
+        }
+
+    }
+
+    function goToPipeline() {
+
+        let targetBook =
+            window.currentBook;
+
+        if (!targetBook) {
+
+            targetBook =
+                localStorage.getItem(
+                    "currentBook"
+                );
+        }
+
+        if (!targetBook) {
+
+            targetBook =
+                document
+                .getElementById(
+                    "presetSelect"
+                )
+                .value;
+        }
+
+        if (!targetBook) {
+
+            alert("請先分析書籍");
+
+            return;
+        }
+
+        window.location.href =
+            `/pipeline?book=${encodeURIComponent(targetBook)}`;
+    }
+
+    
+</script>
+
+</body>
+</html>
