@@ -46,17 +46,16 @@
 
 首頁分析介面：
 
-- 首頁1.png
-- 首頁2.png
-- 首頁3.png
+![首頁1](webpic/首頁1.png)
+![首頁2](webpic/首頁2.png)
+![首頁3](webpic/首頁3.png)
 
 ### NLP Pipeline
 
 評論前處理與分頁展示：
 
-- 分頁1.png
-- 分頁2.png
-
+![分頁1](webpic/分頁1.png)
+![分頁2](webpic/分頁2.png)
 ---
 
 ## 專案結構
