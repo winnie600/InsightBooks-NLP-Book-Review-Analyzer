@@ -32,6 +32,9 @@ from keyword_extraction2 import (
     extract_keywords
 )
 
+from text_classification import (
+    classify_text
+)
 
 
 app = Flask(__name__)
@@ -39,10 +42,8 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
+    return render_template("index.html")
 
-    return render_template(
-        "index.html"
-    )
 
 
 
@@ -201,6 +202,47 @@ def analyze():
                 "top_keywords"
             ]
 
+
+            # ===== Text Classification =====
+
+            classify_text(
+
+                processed_output,
+
+                book_name
+
+            )
+            
+            classification_df = pd.read_csv(
+
+                f"data/{book_name}/"
+
+                f"classified_result_"
+
+                f"{book_name}.csv"
+
+            )
+
+            classification_counts=(
+
+                classification_df[
+                "category"
+                ]
+
+                .fillna("其他")
+
+                .astype(str)
+
+                .str.split(",")
+
+                .explode()
+
+                .value_counts()
+
+                .to_dict()
+
+            )
+
             # ===== Summary =====
 
             summary_df = summarize_reviews(
@@ -210,16 +252,68 @@ def analyze():
 
             if summary_df is not None:
 
+                rating_df = pd.read_csv(
+                    processed_output
+                )
+
+                positive_rating_count = len(
+                    rating_df[
+                        rating_df["rating"] >= 4
+                    ]
+                )
+
+                neutral_rating_count = len(
+                    rating_df[
+                        (rating_df["rating"] >= 3)
+                        &
+                        (rating_df["rating"] < 4)
+                    ]
+                )
+
+                negative_rating_count = len(
+                    rating_df[
+                        rating_df["rating"] < 3
+                    ]
+                )
+
                 summary_text = {
 
-                    "positive":
-                        summary_df["positive_summary"][0],
+                    "positive":{
 
-                    "neutral":
-                        summary_df["neutral_summary"][0],
+                        "text":
+                        summary_df[
+                        "positive_summary"
+                        ][0],
 
-                    "negative":
-                        summary_df["negative_summary"][0]
+                        "count":
+                        positive_rating_count
+
+                    },
+
+                    "neutral":{
+
+                        "text":
+                        summary_df[
+                        "neutral_summary"
+                        ][0],
+
+                        "count":
+                        neutral_rating_count
+
+                    },
+
+                    "negative":{
+
+                        "text":
+                        summary_df[
+                        "negative_summary"
+                        ][0],
+
+                        "count":
+                        negative_rating_count
+
+                    }
+
                 }
 
             else:
@@ -288,9 +382,34 @@ def analyze():
                 }
             }
 
+            review_df = sentiment_df.copy()
+
+            review_df["category"] = (
+                classification_df["category"]
+                .fillna("其他")
+            )
+
             return jsonify({
 
                 "summary": summary_text,
+                "classification": classification_counts,
+
+                "reviews":
+
+                review_df[
+                    [
+                        "rating",
+                        "review_cleaned",
+                        "sentiment",
+                        "category"
+                    ]
+                ]
+
+                .fillna("")
+
+                .to_dict(
+                    orient="records"
+                ),
 
                 "keywords": keywords,
 
@@ -322,6 +441,51 @@ def analyze():
 
     base_path = f"data/{preset}"
 
+    processed_path = (
+
+        f"{base_path}/"
+
+        f"前處理_{preset}.csv"
+
+    )
+
+    # ===== Text Classification =====
+
+    classify_text(
+
+        processed_path,
+
+        preset
+
+    )
+
+
+    classification_df = pd.read_csv(
+
+    f"{base_path}/"
+
+    f"classified_result_"
+
+    f"{preset}.csv"
+
+    )
+
+    classification_counts=(
+
+    classification_df[
+    "category"
+    ]
+
+    .str.split(",")
+
+    .explode()
+
+    .value_counts()
+
+    .to_dict()
+
+    )
+
     # ===== Summary =====
 
     summary_df = pd.read_csv(
@@ -331,25 +495,83 @@ def analyze():
         f"summary_output_{preset}.csv"
     )
 
+    rating_df = pd.read_csv(
+
+        f"{base_path}/"
+
+        f"前處理_{preset}.csv"
+    )
+
+    positive_rating_count = len(
+        rating_df[
+            rating_df["rating"] >= 4
+        ]
+    )
+
+    neutral_rating_count = len(
+        rating_df[
+            (rating_df["rating"] >= 3)
+            &
+            (rating_df["rating"] < 4)
+        ]
+    )
+
+    negative_rating_count = len(
+        rating_df[
+            rating_df["rating"] < 3
+        ]
+    )
+
     summary_text = {
 
-        "positive":
+        "positive":{
+
+            "text":
+
             summary_df.get(
                 "positive_summary",
-                pd.Series(["目前沒有好評資料"])
+                pd.Series([
+                "目前沒有好評資料"
+                ])
             ).iloc[0],
 
-        "neutral":
+            "count":
+            positive_rating_count
+
+        },
+
+        "neutral":{
+
+            "text":
+
             summary_df.get(
                 "neutral_summary",
-                pd.Series(["目前沒有普通評論"])
+                pd.Series([
+                "目前沒有普通評論"
+                ])
             ).iloc[0],
 
-        "negative":
+            "count":
+            neutral_rating_count
+
+        },
+
+        "negative":{
+
+            "text":
+
             summary_df.get(
                 "negative_summary",
-                pd.Series(["目前沒有負評資料"])
-            ).iloc[0]
+                pd.Series([
+                "目前沒有負評資料"
+                ])
+            ).iloc[0],
+
+            "count":
+            negative_rating_count
+
+        }
+
     }
 
     # ===== Keywords =====
@@ -390,55 +612,107 @@ def analyze():
 
     total = len(sentiment_df)
 
+    review_df = sentiment_df.copy()
+
+    review_df["category"] = (
+        classification_df["category"]
+        .fillna("其他")
+    )
+
     result = {
 
-        "summary": summary_text,
+        "reviews":
 
-        "keywords": keywords[:10],
+        review_df[
+            [
+                "rating",
+                "review_cleaned",
+                "sentiment",
+                "category"
+            ]
+        ]
 
-        "wordcloud":
-            f"/static/wordcloud_{preset}.png",
+        .fillna("")
 
-        "sentiment": {
+        .to_dict(
+            orient="records"
+        ),
 
-            "positive": {
+    "summary": summary_text,
 
-                "count":
-                    int(positive_count),
+    "classification":
+    classification_counts,
 
-                "percent":
-                    round(
-                        positive_count / total * 100,
-                        1
-                    )
-            },
+    "keywords":
+    keywords[:10],
 
-            "neutral": {
+    "wordcloud":
+    f"/static/wordcloud_{preset}.png",
 
-                "count":
-                    int(neutral_count),
+    "sentiment":{
 
-                "percent":
-                    round(
-                        neutral_count / total * 100,
-                        1
-                    )
-            },
+    "positive":{
 
-            "negative": {
+    "count":
+    int(
+    positive_count
+    ),
 
-                "count":
-                    int(negative_count),
+    "percent":
+    round(
+    positive_count
+    /
+    total
+    *
+    100,
+    1
+    )
 
-                "percent":
-                    round(
-                        negative_count / total * 100,
-                        1
-                    )
-            }
-        },
+    },
 
-        "book": preset
+    "neutral":{
+
+    "count":
+    int(
+    neutral_count
+    ),
+
+    "percent":
+    round(
+    neutral_count
+    /
+    total
+    *
+    100,
+    1
+    )
+
+    },
+
+    "negative":{
+
+    "count":
+    int(
+    negative_count
+    ),
+
+    "percent":
+    round(
+    negative_count
+    /
+    total
+    *
+    100,
+    1
+    )
+
+    }
+
+    },
+
+    "book":
+    preset
+
     }
 
     return jsonify(result)
