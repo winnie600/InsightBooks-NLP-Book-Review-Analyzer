@@ -61,29 +61,45 @@
 ## 專案結構
 
 ```text
-博客來評論分析nlp/
+博客來評論分析NLP2/
 
-│── app.py
-│── input_crawler.py
-│── preprocessing.py
-│── sentiment_analysis.py
-│── summarization.py
-│── keyword_extraction2.py
+app.py
 
-│── templates/
-│   ├── index.html
-│   └── pipeline.html
+templates/
+│
+├── index.html
+├── pipeline.html
+│
+└── components/
+    ├── navbar.html
+    ├── hero.html
+    ├── search_card.html
+    ├── emotion_card.html
+    ├── keyword_card.html
+    ├── explorer_card.html
+    ├── classification_card.html
+    └── summary_card.html
 
-│── static/
-│   ├── wordcloud_*.png
-│   └── images/
+static/
+│
+├── css/
+│   ├── style.css
+│   └── pipeline.css
+│
+├── js/
+│   └── main.js
+│
+└── images/
+    └── hero-book.png
 
-│── data/
-│   ├── 原子習慣/
-│   ├── 牧羊少年奇幻之旅/
-│   ├── 解憂雜貨店/
-│   ├── 被討厭的勇氣/
-│   └── 底層邏輯：看清這個世界的底牌/
+data/
+
+input_crawler.py
+preprocessing.py
+sentiment_analysis.py
+keyword_extraction2.py
+text_classification.py
+summarization.py
 
 │── requirements.txt
 │── .env
